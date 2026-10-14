@@ -12,7 +12,7 @@ def get_iterative_shared_weights_model(
         device, model_name, batch_norm, max_iterations, filenames, trained_end2end=False):
     model = IterativeSharedWeights(device, model_name, batch_norm, max_iterations)
     if trained_end2end and filenames[0] is not None:
-        model.load_state_dict(torch.load(filenames[0])['model_state_dict'])
+        model.load_state_dict(torch.load(filenames[0], map_location=device)['model_state_dict'])
 
     return model
 

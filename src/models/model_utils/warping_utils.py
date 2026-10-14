@@ -20,13 +20,16 @@ def warp_image_torch(image, flow_field):
     """
     Warp an image using a flow field.
     """
-    _, _, h, w = image.size()
-    grid = create_regular_grid(h, w, image.device)
+    with torch.cuda.amp.autocast(enabled=False):
+        image = image.float()
+        flow_field = flow_field.float()
+        _, _, h, w = image.size()
+        grid = create_regular_grid(h, w, image.device)
 
-    new_grid = add_flow(grid, flow_field, h, w)
+        new_grid = add_flow(grid, flow_field, h, w)
 
-    # note that bicubic can be less stable -> it might be worth testing with bilinear instead
-    warped_image = F.grid_sample(image, new_grid, mode='bicubic', padding_mode='border', align_corners=False)
+        # note that bicubic can be less stable -> it might be worth testing with bilinear instead
+        warped_image = F.grid_sample(image, new_grid, mode='bicubic', padding_mode='border', align_corners=False)
 
     return warped_image
 

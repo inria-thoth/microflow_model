@@ -40,7 +40,7 @@ def load_backbone(backbone_name, use_batch_norm, device, pretrained_weights_path
     model = get_backbone(backbone_name, use_batch_norm).to(device)
     
     if pretrained_weights_path:
-        model.load_state_dict(torch.load(pretrained_weights_path)["model_state_dict"])
+        model.load_state_dict(torch.load(pretrained_weights_path, map_location=device)["model_state_dict"])
         
     print(f"Model name: {backbone_name}")
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters()):,}")

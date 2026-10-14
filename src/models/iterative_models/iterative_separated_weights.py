@@ -16,7 +16,7 @@ def get_iterative_separated_weights_model(
         repeat_model=args.repeat_model, repeat_first_iteration=args.repeat_first_iteration)
 
     if trained_end2end and filenames[0] is not None:
-        model.load_state_dict(torch.load(filenames[0])['model_state_dict'])
+        model.load_state_dict(torch.load(filenames[0], map_location=device)['model_state_dict'])
 
     return model
 
@@ -44,7 +44,7 @@ class IterativeSeparatedWeights(nn.Module):
         """
         for i in range(len(filenames)):
             if filenames[i] is not None:
-                self.iteration_models[i].load_state_dict(torch.load(filenames[i]))
+                self.iteration_models[i].load_state_dict(torch.load(filenames[i], map_location=device))
 
     def forward(self, x, ptv=None, args=None, save=False, frame_labels=False, crs_meta_data=None, transform_meta_data=None):
         b, _, h, w = x.shape

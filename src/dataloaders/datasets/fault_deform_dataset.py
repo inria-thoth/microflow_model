@@ -13,7 +13,8 @@ from skimage.morphology import disk
 class FaultDeformDataset(Dataset):
 
     def __init__(
-            self, frame_ids, root_dir, transform=None, scaling_factors=None, fault_boundary_dir=None, fault_boundary_disk=1
+            self, frame_ids, root_dir, transform=None, scaling_factors=None, fault_boundary_dir=None, fault_boundary_disk=1,
+            clean_pair_dataset_dir=None, clean_pair_prob=0.5, clean_pair_add_noise=True
     ):
         self.frame_ids = frame_ids
         self.root_dir = root_dir  # contains the .npy.npz files
@@ -23,20 +24,28 @@ class FaultDeformDataset(Dataset):
 
         self.fault_boundary_dir = fault_boundary_dir
         self.fault_boundary_disk = fault_boundary_disk
+        self.clean_pair_dataset_dir = clean_pair_dataset_dir
+        self.clean_pair_prob = clean_pair_prob
+        self.clean_pair_add_noise = clean_pair_add_noise
 
     def __len__(self):
         return len(self.frame_ids) * self.len_scaling_factor
 
     def load_sample(self, filename):
-        arrays = np.load(filename)
+        arrays = np.load(filename, allow_pickle=True)
 
         pre = arrays["int_array_1"]
         post = arrays["int_array_2"]
         pre_post_image_array = np.stack([pre, post]).astype(np.float32)
+        pre_post_image_array = np.nan_to_num(pre_post_image_array, nan=0.0, posinf=0.0, neginf=0.0)
 
         dm_ew = arrays["float_array_1"]
         dm_ns = arrays["float_array_2"]
         dm_array = np.stack([dm_ew, dm_ns]).astype(np.float32)
+        dm_array = np.nan_to_num(dm_array, nan=0.0, posinf=0.0, neginf=0.0)
+        
+        # Filter extreme outliers (e.g. GIS NoData values like 1e10 or -99999)
+        dm_array = np.where(np.abs(dm_array) > 2000, 0.0, dm_array)
 
         return pre_post_image_array, dm_array
 
@@ -48,7 +57,39 @@ class FaultDeformDataset(Dataset):
         scaling_factor = self.scaling_factors[id_scalings]
         sample_filename = os.path.join(self.root_dir, f"{frame_id:06d}_{scaling_factor}_sample.npy.npz")
 
-        pre_post_image_array, dm_array = self.load_sample(sample_filename)
+        loaded_from_clean_pair = False
+        if scaling_factor == 0 and self.clean_pair_dataset_dir is not None:
+            if np.random.rand() < self.clean_pair_prob:
+                clean_pair_filename = os.path.join(self.clean_pair_dataset_dir, f"{frame_id:06d}_{scaling_factor}_sample.npy.npz")
+                if os.path.exists(clean_pair_filename):
+                    sample_filename = clean_pair_filename
+                    loaded_from_clean_pair = True
+                elif self.clean_pair_prob == 1.0 and np.random.rand() < 0.05:
+                    print(f"[DEBUG] Missing clean pair file: {clean_pair_filename}")
+
+        try:
+            pre_post_image_array, dm_array = self.load_sample(sample_filename)
+        except Exception as e:
+            if loaded_from_clean_pair:
+                if not hasattr(self, 'corrupted_clean_pairs'):
+                    self.corrupted_clean_pairs = 0
+                self.corrupted_clean_pairs += 1
+                if self.corrupted_clean_pairs > 10:
+                    raise RuntimeError(f"Too many corrupted clean pair files! Last one: {sample_filename}") from e
+                
+                print(f"[WARNING] Corrupted clean pair file ({sample_filename}). Falling back to noisy sample. Error: {e}")
+                sample_filename = os.path.join(self.root_dir, f"{frame_id:06d}_{scaling_factor}_sample.npy.npz")
+                loaded_from_clean_pair = False
+                pre_post_image_array, dm_array = self.load_sample(sample_filename)
+            else:
+                raise
+        
+        if loaded_from_clean_pair and self.clean_pair_add_noise and np.random.rand() < 0.5:
+            # Subtle multiplicative brightness and small noise
+            brightness_scale = np.random.uniform(0.95, 1.05)
+            std_dev = np.std(pre_post_image_array[1]) + 1e-6
+            noise = np.random.normal(0, 0.02 * std_dev, pre_post_image_array[1].shape)
+            pre_post_image_array[1] = (pre_post_image_array[1] * brightness_scale) + noise
         max_displacement = np.abs(np.max(dm_array))
 
         if self.fault_boundary_dir is not None:

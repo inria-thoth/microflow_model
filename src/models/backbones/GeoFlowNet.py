@@ -11,8 +11,7 @@ def get_GeoFlowNet_model(batchNorm=False):
 
 class GeoFlowNet(nn.Module):
     """
-    GeoFlowNet implementation from Tristan Montagnon 
-    https://gricad-gitlab.univ-grenoble-alpes.fr/montagtr/GeoFlowNet/-/blob/master/train/models/GeoFlowNetA.py?ref_type=heads
+    GeoFlowNet architecture (Montagnon et al.)
     """
     expansion = 1
 

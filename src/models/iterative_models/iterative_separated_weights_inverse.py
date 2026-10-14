@@ -11,7 +11,7 @@ def get_iterative_separated_weights_inverse_model(
         device, model_name, batch_norm, max_iterations, filenames, trained_end2end=False, args=None):
     model = IterativeSeparatedWeightsInverse(device, model_name, batch_norm, max_iterations, args=args)
     if trained_end2end and filenames[0] is not None:
-        model.load_state_dict(torch.load(filenames[0])['model_state_dict'])
+        model.load_state_dict(torch.load(filenames[0], map_location=device)['model_state_dict'])
 
     return model
 
@@ -30,6 +30,24 @@ class IterativeSeparatedWeightsInverse(nn.Module):
         self.backbone_name = model_name
 
         self.args = args
+
+        # New args from updated configs (all default to safe/disabled values)
+        self.detach_gradients = getattr(args, 'detach_gradients', True)
+        self.renormalize = getattr(args, 'renormalize', False)
+        self.apply_noise = getattr(args, 'apply_noise', False)
+
+        # Freeze SEA-RAFT backbone weights if requested
+        if getattr(args, 'searaft_freeze', False):
+            self._freeze_backbone_parameters()
+
+    def _freeze_backbone_parameters(self):
+        """Freeze conv layers in backbone iteration models."""
+        for i in range(self.max_iterations):
+            for j in range(6):
+                prefix = f"iteration_models.{i}.conv{j}"
+                for name, param in self.named_parameters():
+                    if name.startswith(prefix):
+                        param.requires_grad = False
 
     def forward(
             self, x, ptv=None, args=None, save=False, frame_labels=False, crs_meta_data=None, transform_meta_data=None,
@@ -57,8 +75,10 @@ class IterativeSeparatedWeightsInverse(nn.Module):
             if iteration == 0:
                 iteration_sum_optical_flows.append(iteration_optical_flows[iteration])
             else:
-                iteration_sum_optical_flows[iteration - 1] = iteration_sum_optical_flows[iteration - 1].detach()
-                iteration_sum_optical_flows.append(iteration_sum_optical_flows[iteration - 1] + iteration_optical_flows[iteration])
+                if self.detach_gradients:
+                    iteration_sum_optical_flows[iteration - 1] = iteration_sum_optical_flows[iteration - 1].detach()
+                iteration_sum_optical_flows.append(
+                    iteration_sum_optical_flows[iteration - 1] + iteration_optical_flows[iteration])
 
             iteration_warped_normalized_images.append(
                 warp_image_torch(
@@ -104,4 +124,3 @@ class IterativeSeparatedWeightsInverse(nn.Module):
 
     def bias_parameters(self):
         return [param for name, param in self.named_parameters() if 'bias' in name]
-

@@ -1,160 +1,187 @@
-# MicroFlow 
+# MicroFlow: Domain-Specific Optical Flow for Ground Deformation Estimation in Seismic Events
 
-[[arXiv](https://arxiv.org/abs/2504.13452) ] [[project page](https://jbertrand89.github.io/microflow/)]
+[![arXiv](https://img.shields.io/badge/arXiv-2504.13452-b31b1b.svg)](https://arxiv.org/abs/2504.13452)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-This repository contains official code for MicroFlow: Domain-Specific Optical Flow for Ground Deformation Estimation in Seismic Events.
+This repository contains the official code for **MicroFlow**, a deep learning framework designed to estimate surface ground deformation fields (East-West and North-South displacements) from optical satellite image pairs across seismic events.
 
-## Installation
-You can setup the environment either by loading the `requirements.txt` file or by following:
+The repository includes:
+* **MicroFlow**: Iterative GeoFlowNet architecture with Total Variation (TV) and Local Total Variation (LTV) regularization.
+* **Iterative unregularized flow**: Fast recurrent flow estimation without TV regularization.
+* **SeaRAFT baseline**: Fine-tuned Sea-RAFT optical flow baseline adapted for high-resolution satellite imagery.
+* **FaultDeform synthetic benchmark**: Dataloading, training, and evaluation scripts on semi-synthetic seismic rupture imagery.
 
-```
-python -m venv ENV
-source ENV/bin/activate
-pip install torch, rasterio, scikit-image, matplotlib, tqdm, opencv-python, pyyaml
-pip install prox-tv
-```
+---
 
-FYI: if needed, install lapack before prox-tv (for ex. with  `sudo apt-get install liblapacke-dev` or `sudo yum install lapacke lapacke-devel`)
+## Environment Setup
 
-## Training on the semi-synthetic dataset FaultDeform
+### 1. Prerequisites (LAPACK for Prox-TV)
+The TV/LTV regularization uses `prox-tv`, which requires LAPACK development headers:
+```bash
+# Ubuntu / Debian
+sudo apt-get install liblapacke-dev
 
-### Downloading the FaultDeform dataset
-The FaultDeform dataset is a synthetic dataset that can be downloaded [here](https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/G02ZXZ&version=1.0).
-You can download it, it will follow the following file structure:
-
-```
-FaultDeform_root_dir
-├── train
-│   │── 000000_0_sample.npy.npz
-│   │── 000000_1_sample.npy.npz
-│   │── 000000_2_sample.npy.npz
-│   │── 000000_3_sample.npy.npz
-│   └── ...
-├── val
-│   │── 000000_0_sample.npy.npz
-│   │── 000000_1_sample.npy.npz
-│   │── 000000_2_sample.npy.npz
-│   │── 000000_3_sample.npy.npz
-│   └── ...
-└── test
-    │── 000000_0_sample.npy.npz
-    │── 000000_1_sample.npy.npz
-    │── 000000_2_sample.npy.npz
-    │── 000000_3_sample.npy.npz
-    └── ...
+# Fedora / CentOS / RHEL
+sudo yum install lapacke lapacke-devel
 ```
 
-### Training Microflow
+### 2. Python Environment
+Create a virtual environment and install the required packages:
 
-To train MicroFlow, run
-```
-python -u train_fault_deform.py \
---train_config_name irseparated_geoflownet_intermediatel1_noreg \
---checkpoints_dir <your_checkpoint_dir> \
---offline_dir <your_offline_dir> \
---save_offline \
---dataset_dir <FaultDeform_root_dir> \
---split_dir <your_directory_containing_the_split_files_for_fault_deform> 
---seed 1
-```
-using the pre-saved config located in `data/configs/train_fault/deform`
-and setting 
-- `checkpoint_dir`: the directory for saving the checkpoints
-- `offline_dir`: the directory for saving the wandb offline logs if you setup `--save_offline`
-- `dataset_dir`: the root directory of Fault Deform
-- `split_dir`: the directory containing the split files
+```bash
+python -m venv microflow_env
+source microflow_env/bin/activate
 
-### Pre-saved configs
-Pre-saved configs for the pretrained models can be found in `data/configs/train_fault/deform`.
-
-To create a new config, use the code in `src/configs/save_train_config.py`.
-Fow example, to create the `irseparated_geoflownet_intermediatel1_noreg` config, run:
-```
-python src/configs/save_train_config.py \
---config_filename data/configs/train_fault_deform/irseparated_geoflownet_intermediatel1_noreg.yaml \
---amp \
---model_name irseparated_GeoFlowNet \
---dataset_dir <your_directory_containing_fault_deform> \
---split_dir <your_directory_containing_the_split_files_for_fault_deform> 
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
 ```
 
-### Pre-trained models
+---
 
-You can find the models trained for reproducing the paper on [huggingface](https://huggingface.co/zjuzju/microflow_models). 
-You can either download the full repository, by running the following python code
-```
-from huggingface_hub import snapshot_download
-local_dir = snapshot_download(repo_id="zjuzju/microflow_models")
-```
+## Pretrained Model Weights
 
-or download each model separately using wget
-```
-wget https://huggingface.co/zjuzju/microflow_models/resolve/main/irseparated_geoflownet_intermediatel1/irseparated_GeoFlowNet_intermediatel1_0.8_sf012_e40.pt
-```
+Pretrained model weights can be downloaded from:
+* **Google Drive**: [MicroFlow & SeaRAFT Weights](https://drive.google.com/drive/folders/1PB2yfOJH3e9VcFZySrmymd-4xDj2NzhP?usp=sharing)
+  * `microflow_seed10.pt`: Full MicroFlow model with iterative refinement.
+  * `searaft_s10.pt`: Fine-tuned SeaRAFT model.
+  * `irseparated_GeoFlowNet_intermediatel1_0.8_sf012_e40.pt`: Pretrained baseline weights.
 
-## Inference of FaultDeform
+Place your downloaded `.pt` weight files into a local folder (e.g. `pretrained_models/`).
 
-Run the following command
-```
-python inference_fault_deform.py \
---train_config_name irseparated_geoflownet_intermediatel1_noreg \
---pretrained_model_filename <your_pretrained_model> \
---metric_filename <your_metric_filename> \
---save_metrics \
---dataset_name faultdeform \
---dataset_dir <FaultDeform_root_dir> \
---split_dir <your_directory_containing_the_split_files> \
---split_scaling_factors 1
-```
+---
 
-and specify
-- `pretrained_model_filename`: the path for your model (.pt)
-- `metric_filename`: the path where to save your results
-- `dataset_dir`: the root directory of Fault Deform
-- `split_dir`: the directory containing the split files
-- `split_scaling_factors`: either 0 (very small displacements), 1 (small displacements) or 2 (large displacements)
+## Quick Start: Inference on Real Examples
 
-Note that your config must be located in `data/configs/train_fault_deform`.
+A sample pair of real satellite GeoTIFF crops is provided in `data/example_real_data/` (`pl_01_pre.tif` and `pl_01_post.tif`).
 
-## Inference for real examples
-
-### Real Examples
-You can evaluate our model on any pair of real-world examples, following the file structure
-```
-Real_example_root_dir
-├── first_example_dir
-│   │── <first_example_template>_pre.tif
-│   └── <first_example_template>_post.tif
-├── second_example_dir
-│   │── <second_example_template>_pre.tif
-│   └── <second_example_template>_post.tif
-└── ...
-```
-
-### Inference
-
-```
+### 1. Running MicroFlow
+```bash
 python inference_real_examples.py \
---config_name <your_filename> \
---pretrained_model_filename <your_pretrained_model> \
---dataset_dir <first_example_dir> \
---save_dir <your_saving_directory> \
---window_size 256 \
---stride 64
+  --config_name microflow \
+  --pretrained_model_filename pretrained_models/microflow_seed10.pt \
+  --dataset_dir data/example_real_data/ \
+  --save_dir results/microflow/ \
+  --window_size 1024 \
+  --stride 0 \
+  --offset 0 \
+  --device cuda
+```
+*(Use `--device cpu` if running without an Nvidia GPU).*
+
+### 2. Running SeaRAFT
+```bash
+python inference_real_examples.py \
+  --config_name searaft \
+  --pretrained_model_filename pretrained_models/searaft_s10.pt \
+  --dataset_dir data/example_real_data/ \
+  --save_dir results/searaft/ \
+  --window_size 1024 \
+  --stride 0 \
+  --offset 0 \
+  --device cuda
 ```
 
-and specify 
-- `config_name`: the config file name without the yaml extention, which must be located in `data/configs/inference_real_examples` (ex. --config_name microflow)
-- `pretrained_model_filename`: the path for your model (.pt)
-- `dataset_dir`: the directory of your current example (for example, Real_examples/first_example containing 'xxx_pre.tif' and 'xxx_post.tif')
-- `save_dir`: directory where to save your estimates
-- `window_size`: sliding window size, recommended for 1024
-- `stride`: stride for the sliding window
+### 3. Sliding Window Parameters for Large Images
+For very large satellite image pairs:
+* `--window_size`: Size of sliding window patches fed to the model (default: `1024`).
+* `--stride`: Overlap step between patches (e.g., `512` for 50% overlap, `0` for non-overlapping tiles).
+* `--offset`: Boundary pixels trimmed from each patch before blending (e.g., `128`) to eliminate edge artifacts.
+* `--save_dir`: Directory where the georeferenced output GeoTIFFs (`_ew.tif` and `_ns.tif`) are saved.
 
-Example: ```python inference_real_examples.py --config_name microflow --pretrained_model_filename pretrained_models/irseparated_GeoFlowNet_intermediatel1_0.8_sf012_e40.pt --save_dir results/ --dataset_dir Real_examples/example/ ```
+---
 
+## FaultDeform Semi-Synthetic Benchmark
+
+### 1. Downloading the Dataset
+The FaultDeform synthetic dataset is available on Recherche Data Gouv:
+* **Download link**: [FaultDeform Dataset (DOI: 10.57745/G02ZXZ)](https://entrepot.recherche.data.gouv.fr/dataset.xhtml?persistentId=doi:10.57745/G02ZXZ&version=1.0)
+
+Extract the archive to a directory (`FaultDeform_root_dir/`) containing `train/`, `val/`, and `test/` folders.
+
+### 2. Evaluating on FaultDeform
+```bash
+python inference_fault_deform.py \
+  --train_config_name irseparated_geoflownet_intermediatel1_noreg \
+  --pretrained_model_filename pretrained_models/microflow_seed10.pt \
+  --dataset_name faultdeform \
+  --dataset_dir <FaultDeform_root_dir> \
+  --split_dir data/splits/ \
+  --split_name test \
+  --split_scaling_factors 1 \
+  --save_metrics \
+  --metric_filename results/faultdeform_metrics.txt \
+  --device cuda
+```
+
+### 3. Training on FaultDeform
+
+MicroFlow models (`irseparatedinverse_GeoFlowNet`) predict reverse displacement fields to perform backward warping. Training them requires pre-computed inverse flow ground-truth labels.
+
+#### Step 1: Generate the Inverse Flow Dataset
+Run `generate_reverse_flow_dataset.py` on your extracted FaultDeform directory:
+```bash
+# Generate inverse labels for train split
+python generate_reverse_flow_dataset.py \
+  --dataset_dir <FaultDeform_root_dir>/train \
+  --split_dir data/splits/ \
+  --split_name train \
+  --split_count -1 \
+  --split_scaling_factors 0 1 2 \
+  --save_dir <FaultDeform_inverse_dir>/train/
+
+# Generate inverse labels for validation split
+python generate_reverse_flow_dataset.py \
+  --dataset_dir <FaultDeform_root_dir>/val \
+  --split_dir data/splits/ \
+  --split_name validation \
+  --split_count -1 \
+  --split_scaling_factors 0 1 2 \
+  --save_dir <FaultDeform_inverse_dir>/val/
+```
+
+#### Step 2: Launch Training
+Train MicroFlow with your generated `--inverse_dataset_dir`:
+```bash
+python train_fault_deform.py \
+  --train_config_name train_microflow \
+  --dataset_dir <FaultDeform_root_dir> \
+  --inverse_dataset_dir <FaultDeform_inverse_dir> \
+  --split_dir data/splits/ \
+  --checkpoints_dir results/checkpoints_microflow/ \
+  --device cuda \
+  --seed 1
+```
+
+*(Note: If training a forward-only model such as `irseparated_geoflownet_intermediatel1_noreg`, you can omit `--inverse_dataset_dir`).*
+
+Pre-saved training configuration files can be found in `data/configs/train_fault_deform/`.
+
+---
 
 ## Citation
-Coming soon
 
+If you find this code or our pretrained models useful in your research, please cite our preprint:
 
+```bibtex
+@article{bertrand2025microflow,
+  title={MicroFlow: Domain-Specific Optical Flow for Ground Deformation Estimation in Seismic Events},
+  author={Bertrand, Juliette and Giffard-Roisin, Sophie and Hollingsworth, James and Mairal, Julien},
+  journal={arXiv preprint arXiv:2504.13452},
+  year={2025}
+}
+```
+
+---
+
+## Authors & Credits
+
+* **Core Architecture & Modeling:** Juliette Bertrand (developed during her research contract at Inria Thoth & ISTerre).
+* **Packaging, Maintenance & Scientific Supervision:** Sophie Giffard-Roisin (ISTerre / Université Grenoble Alpes), James Hollingsworth (ISTerre), Julien Mairal (Inria Thoth).
+
+---
+
+## Acknowledgments and License
+
+This software was developed at **Inria** (Thoth team) in collaboration with **ISTerre** (Université Grenoble Alpes).
+
+This project is licensed under the terms of the **GNU Affero General Public License v3 (AGPLv3)**. See the [LICENSE](LICENSE) file for details.

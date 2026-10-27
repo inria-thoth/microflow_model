@@ -41,6 +41,10 @@ def parse_args():
     parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', help='Device to run inference on (cuda or cpu)')
 
     parser.add_argument('-b', '--batch-size', default=1, type=int, help='batch size for estimating on the sliding windows')
+    parser.add_argument('--save_raw', default=True, action=argparse.BooleanOptionalAction,
+                        help='Save raw (unregularized) displacement alongside regularized output')
+    parser.add_argument('--regularization', default=None, action=argparse.BooleanOptionalAction,
+                        help='Override config to enable or disable regularization')
 
     # ---- ITERATIVE_MODEL params ----
     parser.add_argument('--normalization', default='minmax', type=str,

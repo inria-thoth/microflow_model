@@ -451,6 +451,30 @@ def evaluate_inference_large_image(
         of /= counts_image
         _, h, w = of.shape
 
+        os.makedirs(args.save_dir, exist_ok=True)
+        config_name = args.config_name
+
+        # Save raw unregularized flow if regularization is applied
+        save_raw = getattr(args, 'save_raw', True)
+        if apply_regularization and save_raw:
+            raw_ew_filename = f"{image_pair_name}_{config_name}_raw_ew_i{i_of}.tif".replace("__", "_")
+            raw_ns_filename = f"{image_pair_name}_{config_name}_raw_ns_i{i_of}.tif".replace("__", "_")
+            
+            # Apply QGIS convention (-1 for EW direction) on copy
+            raw_ew = of[0] * -1
+            raw_ns = of[1]
+
+            save_array_to_tiff(
+                raw_ew.astype(np.float32),
+                os.path.join(args.save_dir, raw_ew_filename), transform=transform_meta_datas, crs=crs_meta_datas
+            )
+            save_array_to_tiff(
+                raw_ns.astype(np.float32),
+                os.path.join(args.save_dir, raw_ns_filename), transform=transform_meta_datas, crs=crs_meta_datas
+            )
+            print(f"raw_ew_filename {os.path.join(args.save_dir, raw_ew_filename)}")
+            print(f"raw_ns_filename {os.path.join(args.save_dir, raw_ns_filename)}")
+
         t0 = time.time()
         if apply_regularization:
             chunk_size = 10000
@@ -467,12 +491,10 @@ def evaluate_inference_large_image(
         t1 = time.time()
         print(f"time regularization {t1 - t0}")
 
-        # Save the full images
+        # Save the full images (regularized if apply_regularization, otherwise raw)
         print(f"args.save_dir {args.save_dir}")
-        os.makedirs(args.save_dir, exist_ok=True)
         of[0] = of[0] * -1  # Qgis convention for the EW direction
 
-        config_name = args.config_name
         ew_filename = f"{image_pair_name}_{config_name}_ew_i{i_of}.tif".replace("__", "_")
         save_array_to_tiff(
             of[0].astype(np.float32),

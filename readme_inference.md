@@ -103,3 +103,30 @@ python inference_batch_real_examples.py \
     --stride 0 \
     --offset 0
 ```
+
+---
+
+## Regularization Workflows (MicroFlow v2)
+
+### 1. Saving Both Raw and Regularized Fields During Inference
+When running with regularization enabled (e.g., `--config_name microflow`), the pipeline automatically saves:
+* **Raw unregularized field:** `<image_name>_<config>_raw_ew_i0.tif` and `<image_name>_<config>_raw_ns_i0.tif`
+* **Regularized field:** `<image_name>_<config>_ew_i0.tif` and `<image_name>_<config>_ns_i0.tif`
+
+You can control this behavior using `--save_raw` / `--no-save_raw`, or toggle regularization via `--regularization` / `--no-regularization`.
+
+### 2. Standalone Regularization on Existing GeoTIFFs (`regularize_displacement.py`)
+To test or apply TV/LTV regularization to pre-computed displacement fields without reloading the neural network:
+
+```bash
+python regularize_displacement.py \
+    --ew_path path/to/displacement_ew.tif \
+    --ns_path path/to/displacement_ns.tif \
+    --save_dir path/to/output_dir/ \
+    --penalty_function ltv \
+    --reg_lambda 0.001 \
+    --reg_iterations 3 \
+    --suffix _reg
+```
+* **Supported penalties:** `ltv` (Local Total Variation), `tv` (Total Variation), `l2`.
+* Preserves the exact projection, CRS, and affine transform from the input GeoTIFFs.

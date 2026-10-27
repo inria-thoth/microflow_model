@@ -10,6 +10,16 @@ The repository includes:
 * **Iterative unregularized flow**: Fast recurrent flow estimation without TV regularization.
 * **SeaRAFT baseline**: Fine-tuned Sea-RAFT optical flow baseline adapted for high-resolution satellite imagery.
 * **FaultDeform synthetic benchmark**: Dataloading, training, and evaluation scripts on semi-synthetic seismic rupture imagery.
+* **High-Throughput & Batch Inference (v2.0)**: Streaming on-the-fly dataloader for large GeoTIFF imagery, seam boundary trimming, and multi-folder batch tile processing.
+* **Comprehensive Cluster Guides (v2.0)**: Step-by-step documentation for HPC dataset extraction, inverse flow pre-computation, and distributed training.
+
+---
+
+## Detailed Documentation Guides
+
+* [**Inference & Paper Reproduction Guide**](readme_inference.md): Instructions for validation, reproducing paper metrics (XS/S/M displacement, near-fault vs away-fault EPE), and tile processing.
+* [**HPC Dataset Setup Guide**](README_databases.md): Storage hierarchy, cluster extraction, and inverse flow generation.
+* [**Training & Execution Guide**](README_training.md): Guide for launching training runs, YAML configuration options, and TensorBoard monitoring.
 
 ---
 
@@ -175,8 +185,8 @@ If you find this code or our pretrained models useful in your research, please c
 
 ## Authors & Credits
 
-* **Core Architecture & Modeling:** Juliette Bertrand (developed during her research contract at Inria Thoth & ISTerre).
-* **Packaging, Maintenance & Scientific Supervision:** Sophie Giffard-Roisin (ISTerre / Université Grenoble Alpes), James Hollingsworth (ISTerre), Julien Mairal (Inria Thoth).
+* **Core Architecture & Modeling (v1.0):** Juliette Bertrand (developed during her research contract at Inria Thoth & ISTerre).
+* **Maintenance, v2 Extensions & Scientific Supervision:** Sophie Giffard-Roisin (ISTerre / Université Grenoble Alpes), James Hollingsworth (ISTerre), Julien Mairal (Inria Thoth).
 
 ---
 

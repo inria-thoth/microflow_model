@@ -123,10 +123,14 @@ python regularize_displacement.py \
     --ew_path path/to/displacement_ew.tif \
     --ns_path path/to/displacement_ns.tif \
     --save_dir path/to/output_dir/ \
+    --backend gpu \
     --penalty_function ltv \
     --reg_lambda 0.001 \
     --reg_iterations 3 \
     --suffix _reg
 ```
+* **Backends:**
+  * `--backend gpu` (Default): Native PyTorch energy minimization on GPU. Fast, scalable, and requires **no external C++ libraries** or `prox-tv`.
+  * `--backend proxtv`: Legacy CPU dynamic programming solver via `prox-tv`.
 * **Supported penalties:** `ltv` (Local Total Variation), `tv` (Total Variation), `l2`.
 * Preserves the exact projection, CRS, and affine transform from the input GeoTIFFs.

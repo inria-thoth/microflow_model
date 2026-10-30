@@ -318,8 +318,15 @@ def evaluate_inference_large_image(
     """
     model.eval()
 
-    if args.regularization:
-        import prox_tv as ptv
+    reg_backend = getattr(args, 'reg_backend', 'gpu')
+    if args.regularization and reg_backend == 'proxtv':
+        try:
+            import prox_tv as ptv
+        except ImportError:
+            print("Warning: prox_tv not installed. Falling back to GPU regularization backend.")
+            reg_backend = 'gpu'
+            args.reg_backend = 'gpu'
+            ptv = None
     else:
         ptv = None
 
@@ -477,19 +484,26 @@ def evaluate_inference_large_image(
 
         t0 = time.time()
         if apply_regularization:
-            chunk_size = 10000
+            reg_backend = getattr(args, 'reg_backend', 'gpu')
+            chunk_size = getattr(args, 'reg_chunk_size', 2048 if reg_backend == 'gpu' else 10000)
             _, h, w = of.shape
             of[np.isnan(of)] = 0
-            of_gpu = torch.tensor(of[None, :])
+            of_device = torch.tensor(of[None, :], dtype=torch.float32, device=device)
 
             for i_h in range(h // chunk_size + 1):
                 for i_w in range(w // chunk_size + 1):
-                    end_h = h + 1 if (i_h + 1) * chunk_size > h else (i_h + 1) * chunk_size
-                    end_w = w + 1 if (i_w + 1) * chunk_size > w else (i_w + 1) * chunk_size
-                    of[:, i_h * chunk_size: end_h, i_w * chunk_size: end_w] = compute_regularization(
-                        of_gpu[:, :, i_h * chunk_size: end_h, i_w * chunk_size: end_w], args, ptv)[0].cpu()
+                    start_h = i_h * chunk_size
+                    end_h = min((i_h + 1) * chunk_size, h)
+                    start_w = i_w * chunk_size
+                    end_w = min((i_w + 1) * chunk_size, w)
+                    if start_h >= end_h or start_w >= end_w:
+                        continue
+
+                    chunk = of_device[:, :, start_h:end_h, start_w:end_w].contiguous()
+                    of[:, start_h:end_h, start_w:end_w] = compute_regularization(
+                        chunk, args, ptv)[0].cpu().numpy()
         t1 = time.time()
-        print(f"time regularization {t1 - t0}")
+        print(f"time regularization ({reg_backend}) {t1 - t0:.2f}s")
 
         # Save the full images (regularized if apply_regularization, otherwise raw)
         print(f"args.save_dir {args.save_dir}")

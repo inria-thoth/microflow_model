@@ -11,6 +11,7 @@ The repository includes:
 * **SeaRAFT baseline**: Fine-tuned Sea-RAFT optical flow baseline adapted for high-resolution satellite imagery.
 * **FaultDeform synthetic benchmark**: Dataloading, training, and evaluation scripts on semi-synthetic seismic rupture imagery.
 * **High-Throughput & Batch Inference (v2.0)**: Streaming on-the-fly dataloader for large GeoTIFF imagery, seam boundary trimming, and multi-folder batch tile processing.
+* **Pure PyTorch GPU Regularization (v2.0)**: Native GPU energy minimization for TV/LTV displacement regularization, eliminating external C++ compilation and LAPACK prerequisites.
 * **Comprehensive Cluster Guides (v2.0)**: Step-by-step documentation for HPC dataset extraction, inverse flow pre-computation, and distributed training.
 
 ---
@@ -25,10 +26,12 @@ The repository includes:
 
 ## Environment Setup
 
-### 1. Prerequisites (LAPACK for Prox-TV)
-The TV/LTV regularization uses `prox-tv`, which requires LAPACK development headers:
+### 1. Prerequisites
+In **v2.0**, TV and LTV regularization run natively on GPU/CPU via pure PyTorch with **no extra C++ dependencies**.
+
+*(Optional)* If you explicitly want to run the legacy CPU-based solver (`--reg_backend proxtv`), install the LAPACK development headers:
 ```bash
-# Ubuntu / Debian
+# Ubuntu / Debian (only for legacy --reg_backend proxtv)
 sudo apt-get install liblapacke-dev
 
 # Fedora / CentOS / RHEL

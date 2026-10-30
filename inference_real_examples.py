@@ -45,6 +45,12 @@ def parse_args():
                         help='Save raw (unregularized) displacement alongside regularized output')
     parser.add_argument('--regularization', default=None, action=argparse.BooleanOptionalAction,
                         help='Override config to enable or disable regularization')
+    parser.add_argument('--reg_backend', default='gpu', choices=['gpu', 'proxtv'],
+                        help='Regularization backend: pure PyTorch GPU solver (gpu) or legacy prox-tv CPU (proxtv)')
+    parser.add_argument('--reg_lr', default=0.1, type=float,
+                        help='Learning rate for Adam optimizer in GPU proximal energy solver (default: 0.1)')
+    parser.add_argument('--reg_chunk_size', default=2048, type=int,
+                        help='Tile chunk size for regularization to stay within GPU VRAM limits (default: 2048)')
 
     # ---- ITERATIVE_MODEL params ----
     parser.add_argument('--normalization', default='minmax', type=str,

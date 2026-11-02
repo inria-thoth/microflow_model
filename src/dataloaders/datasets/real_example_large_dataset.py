@@ -48,7 +48,9 @@ class RealExampleLargeDataset(Dataset):
 
     def __init__(
             self,
-            root_dir: str,
+            root_dir: str = None,
+            pre_path: str = None,
+            post_path: str = None,
             transform=None,
             pre_template: str = "pre.tif",
             post_template: str = "post.tif",
@@ -67,7 +69,14 @@ class RealExampleLargeDataset(Dataset):
         self.window_overlap = window_overlap
         self.image_pair_name = None
 
-        self.pre_filename, self.post_filename = self._get_filenames(root_dir)
+        if pre_path and post_path:
+            self.pre_filename = os.path.abspath(pre_path)
+            self.post_filename = os.path.abspath(post_path)
+            self.image_pair_name = os.path.splitext(os.path.basename(self.pre_filename))[0]
+        elif root_dir:
+            self.pre_filename, self.post_filename = self._get_filenames(root_dir)
+        else:
+            raise ValueError("Either (pre_path and post_path) or root_dir must be provided.")
 
         # Read lightweight metadata without loading pixel data
         with rio.open(self.pre_filename) as src:
@@ -100,12 +109,24 @@ class RealExampleLargeDataset(Dataset):
 
     def _get_filenames(self, root_dir: str):
         pre_filename = post_filename = None
-        for filename in os.listdir(root_dir):
+        for filename in sorted(os.listdir(root_dir)):
             if filename.endswith(self.pre_template):
                 pre_filename = os.path.join(root_dir, filename)
                 self.image_pair_name = filename[: -len(self.pre_template)]
             if filename.endswith(self.post_template):
                 post_filename = os.path.join(root_dir, filename)
+
+        # Fallback if standard suffix template didn't match (e.g. Pre_... and Post_...)
+        if pre_filename is None or post_filename is None:
+            tif_files = sorted([f for f in os.listdir(root_dir) if f.lower().endswith(('.tif', '.tiff'))])
+            for f in tif_files:
+                f_lower = f.lower()
+                if pre_filename is None and 'pre' in f_lower:
+                    pre_filename = os.path.join(root_dir, f)
+                    self.image_pair_name = os.path.splitext(f)[0]
+                elif post_filename is None and 'post' in f_lower:
+                    post_filename = os.path.join(root_dir, f)
+
         return pre_filename, post_filename
 
     @staticmethod

@@ -73,11 +73,17 @@ def get_real_examples_dataloader(args):
     Supports sliding-window inference on large tiffs.
     """
     normalization = getattr(args, 'normalization', 'minmax')
+    pre_path = getattr(args, 'pre_path', None)
+    post_path = getattr(args, 'post_path', None)
+    dataset_dir = getattr(args, 'dataset_dir', None)
+
     print(args.dataset_name.lower())
     if args.dataset_name.lower() == "real_examples_onthefly":
         inference_transform = get_inference_transforms(args.window_size, normalization)
         inference_set = RealExampleLargeDatasetOnTheFly(
-            args.dataset_dir,
+            root_dir=dataset_dir,
+            pre_path=pre_path,
+            post_path=post_path,
             transform=inference_transform,
             pre_template="pre.tif",
             post_template="post.tif",
@@ -90,7 +96,9 @@ def get_real_examples_dataloader(args):
         # Default: use the original preloaded dataset
         inference_transform = get_inference_transforms(args.window_size, normalization)
         inference_set = RealExampleLargeDataset(
-            args.dataset_dir,
+            root_dir=dataset_dir,
+            pre_path=pre_path,
+            post_path=post_path,
             transform=inference_transform,
             pre_template="pre.tif",
             post_template="post.tif",

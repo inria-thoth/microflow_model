@@ -64,25 +64,33 @@ There are two primary ways to run inference on real-world satellite imagery, dep
 
 When dealing with a single massive image pair (e.g., thousands of pixels wide), the image must be processed in patches using a sliding window to fit into GPU memory. 
 
-You can control this sliding window behavior using the following arguments:
-- `--window_size` (default: 1024): The size of the sliding window patch (e.g., 1024x1024).
-- `--stride` (default: 0): The stride for the sliding window.
-- `--offset` (default: None): The offset to remove pixels on the boundaries of each window, minimizing border artifacts. If not provided, it defaults to half the overlap.
-- `-b` / `--batch-size` (default: 1): The number of patches to process simultaneously. **Note:** Since patches are large, keep this small (e.g., 1 or 2) to prevent OOM errors.
+You can provide the input images in two ways:
+* **Direct File Paths (Recommended):** Use `--pre_path` and `--post_path` to point directly to the pre- and post-event GeoTIFFs.
+* **Directory Path:** Use `--dataset_dir` pointing to a folder containing both images.
 
-**Example Command:**
+You can control the sliding window behavior using the following arguments:
+- `--window_size` (default: 1024): The size of the sliding window patch (e.g., 1024x1024).
+- `--stride` (default: 0): The stride for the sliding window (`512` for 50% overlap, `0` or `1024` for non-overlapping fast preview).
+- `--offset` (default: None): The offset to trim boundary edge pixels of each window (e.g., `256` when stride is 512), eliminating edge stitching artifacts. Defaults to half the overlap.
+- `-b` / `--batch-size` (default: 1): Number of patches to process simultaneously. Keep at `1` for consumer/laptop GPUs ($\le 4\text{ GB}$ VRAM).
+- `--reg_backend` (default: gpu): Use `gpu` for the pure PyTorch Adam-based proximal solver, or `proxtv` for legacy CPU.
+
+**Example Command (Recommended for Seamless Results):**
 ```bash
 python inference_real_examples.py \
-    --config_name iterative_only \
-    --pretrained_model_filename <path_to_weights.pt> \
-    --dataset_name real_examples_onthefly \
-    --dataset_dir <path_to_large_image_dir> \
-    --save_dir <path_to_save_dir> \
-    -b 2 \
+    --config_name microflow \
+    --pretrained_model_filename pretrained_models/microflow_seed10.pt \
+    --pre_path path/to/pre_event_image.tif \
+    --post_path path/to/post_event_image.tif \
+    --save_dir results/microflow/ \
     --window_size 1024 \
     --stride 512 \
-    --offset 256
+    --offset 256 \
+    --device cuda \
+    --reg_backend gpu
 ```
+*(For fast non-overlapping preview, set `--stride 0 --offset 0`).*
+
 
 ### 2. Batch Processing Small Tiles (`inference_batch_real_examples.py`)
 

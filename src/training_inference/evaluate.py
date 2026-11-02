@@ -4,6 +4,7 @@ from collections import defaultdict
 import torch
 import numpy as np
 import time
+import gc
 from src.dataloaders.tiff_utils import save_array_to_tiff
 from src.models.model_utils.iterative_model_utils import compute_regularization
 import matplotlib.pyplot as plt
@@ -339,8 +340,8 @@ def evaluate_inference_large_image(
         offset = int(np.min([args.offset, offset_max]))
     print('Removing boundary pixels, with offset = ', offset)
 
-    full_optical_flow = np.zeros((2, height, width))
-    counts_image = np.zeros((2, height, width))
+    full_optical_flow = np.zeros((2, height, width), dtype=np.float32)
+    counts_image = np.zeros((height, width), dtype=np.uint16)
 
     # For the large images, we disable the regularization for each patch and apply the regularization at the end
     apply_regularization = args.regularization
@@ -434,7 +435,7 @@ def evaluate_inference_large_image(
             w_slice = min(valid_max_x - valid_min_x, patch_pred.shape[2])
 
             full_optical_flow[:, valid_min_y:valid_min_y+h_slice, valid_min_x:valid_min_x+w_slice] += patch_pred[:, :h_slice, :w_slice]
-            counts_image[:, valid_min_y:valid_min_y+h_slice, valid_min_x:valid_min_x+w_slice] += 1
+            counts_image[valid_min_y:valid_min_y+h_slice, valid_min_x:valid_min_x+w_slice] += 1
         t_cpu += time.time() - tc
 
         t_iter_start = time.time()
@@ -446,16 +447,19 @@ def evaluate_inference_large_image(
     print(f"  Model forward   : {t_forward:.2f}s  ← GPU compute")
     print(f"  CPU copy+accumulate: {t_cpu:.2f}s")
 
-
-    mask = np.isnan(full_optical_flow) | (counts_image == 0)
-    full_optical_flow[mask] = np.nan
-    counts_image[counts_image == 0] = 1  # will be divided by counts_image
+    # In-place normalization to avoid memory spikes
+    valid_mask = counts_image > 0
+    counts_image[~valid_mask] = 1
+    full_optical_flow[0] /= counts_image
+    full_optical_flow[1] /= counts_image
+    full_optical_flow[:, ~valid_mask] = np.nan
+    del counts_image
+    del valid_mask
+    gc.collect()
 
     flow_to_enumerate = [full_optical_flow]
 
     for i_of, of in enumerate(flow_to_enumerate):
-        # Because of window_overlap, some regions have multiple predictions, so we average them
-        of /= counts_image
         _, h, w = of.shape
 
         os.makedirs(args.save_dir, exist_ok=True)
@@ -468,15 +472,12 @@ def evaluate_inference_large_image(
             raw_ns_filename = f"{image_pair_name}_{config_name}_raw_ns_i{i_of}.tif".replace("__", "_")
             
             # Apply QGIS convention (-1 for EW direction) on copy
-            raw_ew = of[0] * -1
-            raw_ns = of[1]
-
             save_array_to_tiff(
-                raw_ew.astype(np.float32),
+                -of[0],
                 os.path.join(args.save_dir, raw_ew_filename), transform=transform_meta_datas, crs=crs_meta_datas
             )
             save_array_to_tiff(
-                raw_ns.astype(np.float32),
+                of[1],
                 os.path.join(args.save_dir, raw_ns_filename), transform=transform_meta_datas, crs=crs_meta_datas
             )
             print(f"raw_ew_filename {os.path.join(args.save_dir, raw_ew_filename)}")
@@ -488,7 +489,6 @@ def evaluate_inference_large_image(
             chunk_size = getattr(args, 'reg_chunk_size', 2048 if reg_backend == 'gpu' else 10000)
             _, h, w = of.shape
             of[np.isnan(of)] = 0
-            of_device = torch.tensor(of[None, :], dtype=torch.float32, device=device)
 
             for i_h in range(h // chunk_size + 1):
                 for i_w in range(w // chunk_size + 1):
@@ -499,7 +499,7 @@ def evaluate_inference_large_image(
                     if start_h >= end_h or start_w >= end_w:
                         continue
 
-                    chunk = of_device[:, :, start_h:end_h, start_w:end_w].contiguous()
+                    chunk = torch.tensor(of[None, :, start_h:end_h, start_w:end_w], dtype=torch.float32, device=device)
                     of[:, start_h:end_h, start_w:end_w] = compute_regularization(
                         chunk, args, ptv)[0].cpu().numpy()
         t1 = time.time()
@@ -507,11 +507,11 @@ def evaluate_inference_large_image(
 
         # Save the full images (regularized if apply_regularization, otherwise raw)
         print(f"args.save_dir {args.save_dir}")
-        of[0] = of[0] * -1  # Qgis convention for the EW direction
+        of[0] *= -1  # Qgis convention for the EW direction (in-place)
 
         ew_filename = f"{image_pair_name}_{config_name}_ew_i{i_of}.tif".replace("__", "_")
         save_array_to_tiff(
-            of[0].astype(np.float32),
+            of[0],
             os.path.join(args.save_dir, ew_filename), transform=transform_meta_datas, crs=crs_meta_datas
         )
 

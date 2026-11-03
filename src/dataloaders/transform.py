@@ -25,11 +25,17 @@ def get_train_transforms(image_size):
     ])
 
 
-def get_inference_transforms(image_size):
-    return Compose([
-        CenterCrop(image_size),
-        NormalizationMinMax()
-    ])
+def get_inference_transforms(image_size, norm_method='minmax'):
+    if norm_method == "minmax":
+        return Compose([
+            CenterCrop(image_size),
+            NormalizationMinMax(),
+        ])
+    else:
+        return Compose([
+            CenterCrop(image_size),
+            Normalization(),
+        ])
 
 
 def get_inference_from_estimates_transforms(image_size):

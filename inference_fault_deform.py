@@ -32,7 +32,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser = ConfigArgumentParser('inference fault deform')
-    parser.add_argument('--train_config_name', default='microflow')
+    parser.add_argument('--train_config_name', default='irseparated_geoflownet_intermediatel1_noreg')
+    parser.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu', help='Device to use (e.g. cuda or cpu)')
     
     # Inference specific parameters
     parser.add_argument('--seed', default=1, type=int, help='Seed used for the random number generators')
@@ -63,7 +64,8 @@ def parse_args():
 
     namespace, _ = parser.parse_known_args()
 
-    config_filename = os.path.join("data/configs/train_fault_deform/", f'{namespace.train_config_name.lower()}.yaml')
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    config_filename = os.path.join(current_dir, "data/configs/train_fault_deform", f'{namespace.train_config_name.lower()}.yaml')
     parser.add_argument('--config', action=YamlConfigAction, default=[config_filename])
 
     return parser.parse_args()
@@ -77,30 +79,37 @@ def run_inference(args):
     fix_seed(args.seed)
 
     # Define device
-    device = torch.device('cuda')
+    device = torch.device(args.device)
 
     # Load models
     optical_flow_model = load_model(args, device)
-
-    # Get dataloaders
-    loader, frame_names, crs_meta_datas, transform_meta_datas = get_inference_dataloader(args)
 
     # Define metrics
     photometric_metrics = [realEPE]
     smoothness_metrics = [L2Smoothness()]
 
     t_start = time.time()   
-    evaluate_inference(
-        args=args,
-        device=device,
-        model=optical_flow_model,
-        loader=loader,
-        photometric_metrics=photometric_metrics,
-        smoothness_metrics=smoothness_metrics,
-        frame_names=frame_names,
-        crs_meta_datas=crs_meta_datas,
-        transform_meta_datas=transform_meta_datas
-    )
+    
+    original_scaling_factors = args.split_scaling_factors
+    for scaling_factor in original_scaling_factors:
+        print(f"\nEvaluating scaling factor: {scaling_factor}")
+        # Overwrite the scaling factors with just the current one so get_inference_dataloader uses only it
+        args.split_scaling_factors = [scaling_factor]
+        
+        # Get dataloaders
+        loader, frame_names, crs_meta_datas, transform_meta_datas = get_inference_dataloader(args)
+    
+        evaluate_inference(
+            args=args,
+            device=device,
+            model=optical_flow_model,
+            loader=loader,
+            photometric_metrics=photometric_metrics,
+            smoothness_metrics=smoothness_metrics,
+            frame_names=frame_names,
+            crs_meta_datas=crs_meta_datas,
+            transform_meta_datas=transform_meta_datas
+        )
     t_end = time.time()
 
     print(f'\n## Inference on {args.split_name}##')

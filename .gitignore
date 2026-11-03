@@ -1,0 +1,37 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Environments
+env/
+venv/
+ENV/
+*.env
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+
+# PyTorch checkpoints and weights
+*.pt
+*.pth
+pretrained_models/
+results/
+wandb/
+
+# Data subsets / archives
+data/splits_subset/
+*.tar.gz
+*.zip
+*.tif.aux.xml
+
+# Jupyter & Editor artifacts
+.ipynb_checkpoints/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store

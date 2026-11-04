@@ -188,7 +188,7 @@ If you find this code or our pretrained models useful in your research, please c
 
 ## Authors & Credits
 
-* **Core Architecture & Modeling (v1.0):** Juliette Bertrand (developed during her research contract at Inria Thoth & ISTerre).
+* **Core Architecture & Modeling (v1.0):** Juliette Bertrand (developed during her research contract at Inria Thoth).
 * **Maintenance, v2 Extensions & Scientific Supervision:** Sophie Giffard-Roisin (ISTerre / Université Grenoble Alpes), James Hollingsworth (ISTerre), Julien Mairal (Inria Thoth).
 
 ---
